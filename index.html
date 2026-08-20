@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F6F4F0">
+<title>北京行程 8/25–9/2</title>
+<link rel="stylesheet" href="https://cdn.staticfile.org/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdn.staticfile.org/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* CDN 兜底：国内主源失败时依次回退 */
+(function(){
+  if(typeof L!=='undefined')return;
+  var alts=['https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/leaflet/1.9.4/leaflet.min.js',
+            'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+            'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'];
+  var css=['https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/leaflet/1.9.4/leaflet.min.css',
+           'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css',
+           'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'];
+  var i=0;
+  function tryNext(){
+    if(i>=alts.length)return;
+    var l=document.createElement('link');l.rel='stylesheet';l.href=css[i];document.head.appendChild(l);
+    var t=document.createElement('script');t.src=alts[i++];
+    t.onload=function(){if(window.__mapRetry)window.__mapRetry()};
+    t.onerror=tryNext;document.head.appendChild(t);
+  }
+  tryNext();
+})();
+</script>
+<style>
+:root{--bg:#F6F4F0;--surface:#FFF;--border:#E6E1DA;--muted:#8C877E;--body:#2B2820;
+--accent:#2A6FDB;--accent-lt:#EBF1FB;--success:#2D7D46;--warn:#B45309;
+--font:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;
+--safe-b:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{overscroll-behavior-y:none}
+body{background:var(--bg);color:var(--body);font-family:var(--font);font-size:15px;line-height:1.6;
+padding-bottom:calc(58px + var(--safe-b))}
+
+/* 顶栏 */
+.hdr{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);
+backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.hdr-top{padding:12px 16px 8px;display:flex;align-items:baseline;gap:8px}
+.hdr-t{font-size:16px;font-weight:700}
+.hdr-s{font-size:11px;color:var(--muted)}
+.daybar{display:flex;gap:7px;overflow-x:auto;padding:0 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.daybar::-webkit-scrollbar{display:none}
+.dpill{flex-shrink:0;padding:6px 12px;border-radius:16px;border:1.5px solid var(--border);
+background:#fff;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;
+transition:all .15s;cursor:pointer}
+.dpill.on{color:#fff;border-color:transparent}
+.dpill .wd{font-size:10px;opacity:.75;margin-left:3px;font-weight:500}
+
+/* 内容 */
+.wrap{padding:14px 14px 20px}
+.pane{display:none}
+.pane.on{display:block}
+
+/* 日头 */
+.dhead{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;
+box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:5px solid var(--accent)}
+.dh-d{font-size:21px;font-weight:700;letter-spacing:-.01em}
+.dh-d span{font-size:13px;font-weight:400;color:var(--muted);margin-left:5px}
+.dh-t{font-size:14px;font-weight:600;margin-top:1px}
+.dh-h{font-size:11.5px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dashed var(--border)}
+
+/* 地图 */
+.mapbox{height:230px;border-radius:14px;overflow:hidden;margin-bottom:12px;
+box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
+#map{width:100%;height:100%;background:#E8E4DE}
+.maptip{position:absolute;left:8px;bottom:8px;z-index:400;background:rgba(255,255,255,.92);
+padding:3px 8px;border-radius:10px;font-size:10px;color:var(--muted);pointer-events:none}
+
+/* 时间轴 */
+.tl{border-left:2px solid var(--border);margin-left:9px;padding-left:15px}
+.ti{position:relative;padding-bottom:14px}
+.ti::before{content:'';position:absolute;left:-21px;top:6px;width:9px;height:9px;
+border-radius:50%;background:#fff;border:2px solid var(--border)}
+.ti.key::before{background:var(--accent);border-color:var(--accent)}
+.ti.meal::before{background:var(--warn);border-color:var(--warn)}
+.ti-c{background:#fff;border-radius:11px;padding:11px 13px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.ti-t{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+.ti-h{font-size:14.5px;font-weight:600;margin:1px 0 4px;line-height:1.35}
+.ti-d{font-size:12.5px;color:#5A554D;line-height:1.55}
+.ti-w{font-size:11.5px;color:var(--warn);margin-top:7px;padding:6px 9px;
+background:#FFF7ED;border-radius:7px;line-height:1.45}
+.cp{display:inline-block;padding:2px 8px;border-radius:9px;font-size:10px;
+font-weight:700;margin:0 4px 3px 0}
+.c-metro{background:#EBF1FB;color:#2A6FDB}
+.c-taxi{background:#FEF3C7;color:#92400E}
+.c-walk{background:#ECFDF5;color:#065F46}
+.c-train{background:#F3E8FF;color:#6B21A8}
+
+/* TODO */
+.tdg{margin-bottom:18px}
+.tdg-t{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;padding-left:2px}
+.td{display:flex;gap:10px;padding:11px 13px;background:#fff;border-radius:11px;
+margin-bottom:7px;box-shadow:0 1px 2px rgba(0,0,0,.05);cursor:pointer;
+transition:opacity .15s;-webkit-user-select:none;user-select:none}
+.td:active{opacity:.6}
+.td.urg{border-left:3px solid var(--warn)}
+.td.done{opacity:.45}
+.td.done .td-t{text-decoration:line-through}
+.cb{width:19px;height:19px;border-radius:6px;border:2px solid var(--border);
+flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center}
+.td.done .cb{background:var(--success);border-color:var(--success)}
+.td.done .cb::after{content:'✓';color:#fff;font-size:12px;font-weight:700}
+.td-t{font-size:13.5px;font-weight:600;line-height:1.4}
+.td-m{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.prog{background:#fff;border-radius:11px;padding:11px 14px;margin-bottom:14px;
+font-size:12px;color:var(--muted);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.prog b{color:var(--accent);font-size:15px}
+.pbar{height:5px;background:var(--bg);border-radius:3px;margin-top:7px;overflow:hidden}
+.pfill{height:100%;background:var(--success);border-radius:3px;transition:width .3s}
+
+/* 总览 */
+.ov{background:#fff;border-radius:12px;padding:13px 15px;margin-bottom:9px;
+box-shadow:0 1px 2px rgba(0,0,0,.05);border-left:4px solid;cursor:pointer}
+.ov:active{opacity:.6}
+.ov-d{font-size:11px;font-weight:700;color:var(--muted)}
+.ov-t{font-size:15px;font-weight:600;margin:1px 0 3px}
+.ov-h{font-size:11px;color:var(--muted)}
+.note{background:#fff;border-radius:12px;padding:14px 16px;margin-top:14px;
+font-size:12px;color:#5A554D;line-height:1.75;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.note b{color:var(--body)}
+.note-h{font-size:13px;font-weight:700;color:var(--body);margin-bottom:6px}
+
+/* 底部导航 */
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:60;display:flex;
+background:rgba(255,255,255,.96);backdrop-filter:blur(12px);
+-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--border);
+padding-bottom:var(--safe-b)}
+.nb{flex:1;padding:9px 4px 8px;text-align:center;cursor:pointer;color:var(--muted);transition:color .15s}
+.nb.on{color:var(--accent)}
+.nb-i{font-size:19px;line-height:1.2}
+.nb-l{font-size:10px;font-weight:600;margin-top:1px}
+.badge{display:inline-block;min-width:15px;padding:0 4px;background:var(--warn);
+color:#fff;border-radius:8px;font-size:9px;font-weight:700;line-height:15px;
+vertical-align:2px;margin-left:2px}
+@media(min-width:600px){body{max-width:520px;margin:0 auto;
+box-shadow:0 0 40px rgba(0,0,0,.07)}.nav{max-width:520px;left:50%;transform:translateX(-50%)}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-top">
+    <span class="hdr-t">📍 北京行程</span>
+    <span class="hdr-s">8/25 – 9/2 · 父母同行</span>
+  </div>
+  <div class="daybar" id="daybar"></div>
+</div>
+
+<div class="wrap">
+  <div class="pane on" id="trip"></div>
+  <div class="pane" id="todo"></div>
+</div>
+
+<div class="nav">
+  <div class="nb on" data-t="trip"><div class="nb-i">🗺</div><div class="nb-l">行程</div></div>
+  <div class="nb" data-t="todo"><div class="nb-i">✓</div><div class="nb-l">待办<span class="badge" id="tdBadge"></span></div></div>
+</div>
+
+<script>
+
+const PLACES={"hotel_qh":{"p":[40.0325,116.3538],"n":"悦泉假日酒店","t":"hotel","d":"清河小营桥店 · 8/25–8/27 · ❌无早餐"},"hotel_sd":{"p":[40.05,116.305],"n":"朗丽兹酒店","t":"hotel","d":"上地中关村软件园店 · 8/27–8/30 · ❌无早餐"},"hotel_qh2":{"p":[40.0378,116.3452],"n":"海友酒店·清河万象汇店","t":"hotel","d":"清河万象汇 · 8/30–8/31 · ✅含早餐"},"hotel_at":{"p":[40.0028,116.3969],"n":"宝石花酒店","t":"hotel","d":"鸟巢奥体店 · 8/31–9/1 · ❌无早餐"},"hotel_xzm":{"p":[39.95,116.3478],"n":"海友酒店","t":"hotel","d":"西直门店 · 9/1–9/2 · ✅含早餐"},"fengtai":{"p":[39.8658,116.2878],"n":"北京丰台站","t":"transport","d":"高铁进出京"},"badachu":{"p":[39.9575,116.19],"n":"八大处医院","t":"scenic","d":"石景山区 · 8/26下午"},"botanical":{"p":[40.002,116.205],"n":"国家植物园","t":"scenic","d":"医院顺道可选"},"tsinghua":{"p":[40.009,116.326],"n":"清华大学","t":"scenic","d":"二校门·荷塘·清华学堂"},"yiheyuan":{"p":[40.0045,116.2745],"n":"颐和园","t":"scenic","d":"8/28上午 · 昆明湖·长廊"},"yunnan":{"p":[39.974,116.318],"n":"知春路云南菜","t":"food","d":"8/28周五中午"},"beihai":{"p":[39.928,116.386],"n":"北海公园","t":"scenic","d":"白塔·琼华岛"},"gongwangfu":{"p":[39.936,116.383],"n":"恭王府","t":"scenic","d":"和珅宅邸"},"kaoya":{"p":[39.938,116.385],"n":"四季民福烤鸭","t":"food","d":"8/29周六中午 ⭐"},"shichahai":{"p":[39.941,116.386],"n":"什刹海","t":"scenic","d":"前海·后海"},"gulou":{"p":[39.942,116.392],"n":"鼓楼","t":"scenic","d":"中轴线"},"nanluogu":{"p":[39.937,116.403],"n":"南锣鼓巷","t":"scenic","d":"老北京胡同"},"yuanming":{"p":[40.009,116.301],"n":"圆明园","t":"scenic","d":"8/27下午 · 西洋楼遗址"},"yonghe":{"p":[39.9475,116.4185],"n":"雍和宫","t":"scenic","d":"8/30机动日方案A"},"aosen":{"p":[40.015,116.395],"n":"奥林匹克森林公园","t":"scenic","d":"南园湖边散步"},"niaochao":{"p":[39.9928,116.3973],"n":"鸟巢·水立方","t":"scenic","d":"外观打卡"},"maozhuxi":{"p":[39.9035,116.3975],"n":"毛主席纪念堂","t":"scenic","d":"周一闭馆"},"tiananmen":{"p":[39.9055,116.3976],"n":"天安门广场","t":"scenic","d":"人民英雄纪念碑"},"gugong":{"p":[39.9163,116.3972],"n":"故宫博物院","t":"scenic","d":"午门进·神武门出"},"jingshan":{"p":[39.9262,116.3975],"n":"景山公园","t":"scenic","d":"俯瞰故宫全景"}}, DAYS=[{"id":"0825","date":"8/25","wd":"周二","theme":"抵京","color":"#E11D48","hotel":"🏨 清河 · 悦泉假日酒店 · ❌无早餐","route":["fengtai","hotel_qh"],"items":[{"time":"傍晚","title":"到达北京丰台站","chips":[["c-train","高铁"]],"desc":"具体车次待定"},{"time":"","title":"丰台站 → 清河酒店","chips":[["c-metro","地铁 ~18km"]],"desc":"16号线转13号线，约50分钟","key":true},{"time":"晚上","title":"入住 · 就近晚餐","desc":"放行李，早休息，第二天弟弟报到、你出差，父母需自行安排上午"}]},{"id":"0826","date":"8/26","wd":"周三","theme":"医院日","color":"#EA580C","hotel":"🏨 清河 · 悦泉假日酒店 · ❌无早餐","route":["hotel_qh","tsinghua","badachu","botanical","hotel_qh"],"items":[{"time":"早上","title":"酒店外买早餐","desc":"悦泉不含早，附近便利店或早点铺解决"},{"time":"上午","title":"父母自由活动","desc":"酒店附近散步，或清河商圈逛逛。弟弟清华报到，你出差"},{"time":"中午","title":"清华食堂","chips":[["c-taxi","打车 ~8km"]],"desc":"弟弟报到间隙一起在清华吃，实惠且不用排队找馆子","meal":true,"warn":"校外家长进校需预约，提前跟弟弟确认能否带入"},{"time":"下午","title":"八大处医院","chips":[["c-metro","地铁 ~20km"]],"desc":"清华 → 玉泉路方向，约50分钟。若中午没在清华吃，则从清河出发约45分钟","key":true,"warn":"提前网上挂号，确认科室和就诊时段"},{"time":"可选","title":"国家植物园","chips":[["c-taxi","打车 ~5km"]],"desc":"就医完毕若还有精力，打车15分钟即到，同在西部顺路。节奏慢适合老人；看诊耗时长就跳过"},{"time":"晚上","title":"返回清河","chips":[["c-metro","地铁"]],"desc":"就近吃饭，早休息"}]},{"id":"0827","date":"8/27","wd":"周四","theme":"清华 + 圆明园","color":"#CA8A04","hotel":"🏨 换住 上地 · 朗丽兹酒店 · ❌无早餐","route":["hotel_qh","tsinghua","yuanming","hotel_sd"],"items":[{"time":"早上","title":"酒店外买早餐","desc":"悦泉不含早。今天要退房，记得带齐行李"},{"time":"上午","title":"清华大学","chips":[["c-taxi","打车 ~8km"]],"desc":"弟弟开学典礼后陪同参观。二校门、荷塘、清华学堂，步行约2小时","key":true,"warn":"需提前预约进校，或确认弟弟能带访客"},{"time":"中午","title":"清华食堂","chips":[["c-walk","步行"]],"desc":"荷园或观畴园，实惠又能体验校园。周三周四两顿都在清华，正好省下找饭馆的功夫","meal":true},{"time":"下午","title":"圆明园","chips":[["c-taxi","打车 ~2km"]],"desc":"清华西门出去就是圆明园南门，5分钟车程，是全程最顺的一段。西洋楼遗址、大水法转转，2–3小时足够","key":true},{"time":"傍晚","title":"换住上地朗丽兹","chips":[["c-taxi","打车 ~4km"]],"desc":"圆明园离上地很近。今天要退清河的房，早上先把行李寄存在朗丽兹前台更省事","warn":"8/27 退房清河 → 入住上地，注意行李"}]},{"id":"0828","date":"8/28","wd":"周五","theme":"颐和园 + 云南菜","color":"#65A30D","hotel":"🏨 上地 · 朗丽兹酒店 · ❌无早餐","route":["hotel_sd","yiheyuan","yunnan","hotel_sd"],"items":[{"time":"早上","title":"酒店外买早餐","desc":"朗丽兹不含早，软件园周边有便利店和早点"},{"time":"上午","title":"颐和园","chips":[["c-taxi","打车 ~7km"]],"desc":"上地出发约20分钟。上午去比下午凉快、人也少。昆明湖边散步、长廊慢走，不爬万寿山，游3小时足够","key":true,"warn":"东宫门进、新建宫门出更省脚力；提前1–2天预约"},{"time":"中午","title":"知春路云南菜 ⭐","chips":[["c-taxi","打车 ~8km"]],"desc":"颐和园 → 知春路约20分钟，正好在回上地的路上。周五中午人相对少，好排队","meal":true,"warn":"提前2–3天预约，或11:30前到店取号"},{"time":"下午","title":"回酒店午睡","chips":[["c-taxi","打车 ~5km"]],"desc":"父母有午睡习惯，下午留白。上午逛了颐和园，下午一定要歇够"}]},{"id":"0829","date":"8/29","wd":"周六","theme":"什刹海 + 烤鸭","color":"#0891B2","hotel":"🏨 上地 · 朗丽兹酒店 · ❌无早餐","route":["hotel_sd","beihai","gongwangfu","kaoya","shichahai","gulou","nanluogu","hotel_sd"],"items":[{"time":"早上","title":"酒店外买早餐","desc":"朗丽兹不含早。今天是最大步行日，早饭吃扎实点"},{"time":"上午","title":"北海公园 → 恭王府","chips":[["c-metro","地铁 ~20km"]],"desc":"上地出发约1小时到北海北站。北海先逛白塔、琼华岛，出北门步行500m到恭王府","key":true},{"time":"中午","title":"四季民福烤鸭 ⭐","chips":[["c-walk","步行"]],"desc":"什刹海附近，恭王府走过去很近。也可选大董或全聚德","meal":true,"warn":"提前一周订座！周六中午最难订"},{"time":"下午","title":"什刹海 → 鼓楼 → 南锣鼓巷","chips":[["c-walk","步行"]],"desc":"全程步行范围，节奏完全自控。父母若午后乏力，鼓楼和南锣选一个就行，不必强求走完"},{"time":"晚上","title":"返回上地","chips":[["c-metro","地铁"]],"desc":"今天走得最多，早点回"}]},{"id":"0830","date":"8/30","wd":"周日","theme":"机动日 + 换住清河","color":"#7C3AED","hotel":"🏨 换住 清河万象汇 · 海友酒店 · ✅含早餐","route":["hotel_sd","yonghe","hotel_qh2"],"items":[{"time":"早上","title":"酒店外买早餐","desc":"今早还在朗丽兹，不含早。明早起换到海友就有早餐了"},{"time":"上午","title":"退房上地朗丽兹","chips":[["c-taxi","打车 ~7km"]],"desc":"今天换到清河万象汇海友。行李可先送到海友前台寄存，或退房后直接过去（一般下午2点后可入住）","key":true,"warn":"8/30 退房上地 → 入住清河万象汇"},{"time":"上午","title":"方案A：雍和宫 + 五道营胡同","chips":[["c-metro","地铁 ~20km"]],"desc":"雍和宫烧香，顺路国子监、孔庙、五道营胡同，比南锣安静。你之前说\"有空再安排\"，今天正好是那个空","warn":"雍和宫需微信预约，每日限流，提前一天订"},{"time":"或","title":"方案B：北大未名湖","chips":[["c-taxi","打车 ~6km"]],"desc":"离上地近，未名湖、博雅塔走一圈，半天足够。周四逛了清华，正好凑一对","warn":"北大进校也需提前预约"},{"time":"或","title":"方案C：整天休息","desc":"这天本就是缓冲日。明天还要搬一次家、后天故宫最累，什么都不安排完全合理"},{"time":"下午","title":"入住海友 · 留白休息","desc":"万象汇就在酒店旁边，吃饭购物都方便。前面几天若有取消的行程，可以补到今天"}]},{"id":"0831","date":"8/31","wd":"周一","theme":"奥森 + 鸟巢","color":"#DB2777","hotel":"🏨 换住 奥体 · 宝石花酒店 · ❌无早餐","route":["hotel_qh2","hotel_at","aosen","niaochao","hotel_at"],"items":[{"time":"早上","title":"海友酒店吃早餐 ✅","desc":"清河万象汇海友含早餐，在酒店吃完再出发","meal":true},{"time":"上午","title":"退房 → 换住奥体宝石花","chips":[["c-taxi","打车 ~9km"]],"desc":"清河万象汇 → 奥体约25分钟。先办入住放行李再出门","key":true,"warn":"连续第二天搬家：8/31 退房清河 → 入住奥体"},{"time":"中午","title":"奥体附近午餐","desc":"酒店周边解决，不折腾"},{"time":"下午","title":"奥林匹克森林公园","chips":[["c-walk","步行"]],"desc":"南园湖边散步，有树有水，节奏慢，最适合老人。走累了随处有长椅"},{"time":"","title":"鸟巢 · 水立方外观","chips":[["c-walk","步行 ~2km"]],"desc":"佛系打卡，不买票进场，外面拍照就行。傍晚亮灯更好看"},{"time":"晚上","title":"早休息","desc":"明天故宫是全程最累的一天，今晚一定早睡"}]},{"id":"0901","date":"9/1","wd":"周二","theme":"天安门 · 故宫 · 景山","color":"#1D4ED8","hotel":"🏨 换住 西直门 · 海友酒店 · ✅含早餐","route":["hotel_at","maozhuxi","tiananmen","gugong","jingshan","hotel_xzm"],"items":[{"time":"早上","title":"路上买早餐","desc":"宝石花不含早。今天要赶8点的纪念堂，路上或前一晚备好"},{"time":"早8:00","title":"毛主席纪念堂","chips":[["c-taxi","打车 ~12km"]],"desc":"奥体 → 天安门约35分钟。周一闭馆，周二正好开放，上午场，早点去排队","key":true,"warn":"微信小程序提前1–3天预约；开放约8:00–12:00"},{"time":"","title":"天安门广场","chips":[["c-walk","步行"]],"desc":"人民英雄纪念碑、国旗台，走过广场即到故宫"},{"time":"上午","title":"故宫博物院","chips":[["c-walk","步行"]],"desc":"午门进、神武门出，走中轴线约3小时。预约第一批8:30入场人最少","key":true,"warn":"官方小程序提前7天抢票，务必早抢"},{"time":"","title":"景山公园","chips":[["c-walk","步行 200m"]],"desc":"故宫神武门出来对面就是。爬万春亭约10分钟，俯瞰故宫全景，最佳机位","key":true},{"time":"下午","title":"入住西直门海友","chips":[["c-taxi","打车 ~7km"]],"desc":"今天要退奥体的房，建议早上出发前把行李寄存到海友前台，逛完直接入住","warn":"9/1 退房奥体 → 入住西直门，带行李逛故宫很累，务必提前寄存"}]},{"id":"0902","date":"9/2","wd":"周三","theme":"离京","color":"#475569","hotel":"🚄 北京丰台站","route":["hotel_xzm","fengtai"],"items":[{"time":"早上","title":"海友酒店吃早餐 ✅","desc":"西直门海友含早餐，吃完从容退房","meal":true},{"time":"上午","title":"退房 → 北京丰台站","chips":[["c-metro","地铁 ~12km"]],"desc":"西直门住得近，地铁约35分钟。西直门这一晚订得很聪明，比奥体近一半","key":true,"warn":"提前1.5小时出发，丰台站大，进站找站台留足时间"},{"time":"","title":"乘高铁离京","chips":[["c-train","高铁"]],"desc":"具体车次待定"}]}], TODOS=[{"g":"🚨 立刻做（今天/明天）","urgent":true,"items":[{"t":"抢高铁票（去程 8/25 + 回程 9/2）","m":"进出均为北京丰台站；父母同行建议选靠近车厢门的座位"},{"t":"预订 8/25–8/27 悦泉假日（清河小营桥店）","m":"2晚 · ❌无早餐 · 已定则勾掉"},{"t":"预订 8/27–8/30 朗丽兹（上地中关村软件园店）","m":"3晚 · ❌无早餐 · 已定则勾掉"},{"t":"预订 8/30–8/31 海友（清河万象汇店）","m":"1晚 · ✅含早餐 · 已定则勾掉"},{"t":"预订 8/31–9/1 宝石花（鸟巢奥体店）","m":"1晚 · ❌无早餐 · 已定则勾掉"},{"t":"预订 9/1–9/2 海友（西直门店）","m":"1晚 · ✅含早餐 · 已定则勾掉"},{"t":"烤鸭订座 · 四季民福什刹海店","m":"8/29 周六中午，提前一周订，周末最难订。大众点评或电话"}]},{"g":"📅 提前 5–7 天","urgent":false,"items":[{"t":"故宫门票（9/1）","m":"微信小程序「故宫博物院」提前7天放票，选 8:30 第一批入场，抢票靠手速"},{"t":"清华进校预约（8/27）","m":"小程序「清华大学参观预约」；或确认弟弟能以在校生身份带家长进"},{"t":"八大处医院挂号（8/26下午）","m":"医院官网或微信公众号，确认科室与时段"}]},{"g":"📅 提前 1–3 天","urgent":false,"items":[{"t":"毛主席纪念堂预约（9/1）","m":"微信小程序，提前1–3天；周一闭馆，9/1周二正常开放"},{"t":"颐和园门票（8/27下午）","m":"颐和园公众号或支付宝，提前1–2天"},{"t":"知春路云南菜订位（8/28中午）","m":"提前2–3天，大众点评或电话；周五中午相对好排"},{"t":"雍和宫预约（8/30，若选方案B）","m":"微信预约，每日限流，去之前一天订"}]},{"g":"🧳 换酒店当天注意（共4次）","urgent":true,"items":[{"t":"8/27 早上：行李寄存到上地朗丽兹","m":"当天退清河、逛清华颐和园，别拖着行李。多数酒店可提前寄存"},{"t":"8/30 早上：退上地 → 清河万象汇海友","m":"圆明园正好在两家酒店中间，顺路。行李先送海友前台，逛完再回来入住"},{"t":"8/31 早上：退清河 → 先办奥体入住再出门","m":"⚠️ 连续第二天搬家。清河→奥体打车约25分钟，放完行李再去奥森"},{"t":"9/1 早上：行李寄存到西直门海友","m":"⚠️ 最关键的一次。带行李逛故宫会非常累，出发前务必先送到海友前台"}]},{"g":"💡 出行准备","urgent":false,"items":[{"t":"确认父母手机能扫码坐地铁","m":"微信/支付宝均可开通乘车码；或提前买两张实体一卡通更省事"},{"t":"父母身份证随身","m":"所有景点预约、进站、酒店入住都要刷证"},{"t":"常用药 + 医院资料","m":"8/26 看病要带的病历、检查单提前整理好"},{"t":"舒适步行鞋","m":"8/29 什刹海和 9/1 故宫是两个大步行日"},{"t":"6个早上要在外面吃早餐","m":"只有 8/31、9/2 两天海友含早。其余早上在酒店附近便利店/早点铺解决，可前一晚先买好"},{"t":"景山公园门票","m":"现场买即可，很便宜；9/1 故宫北门出来对面"}]}];
+const COLORS={hotel:'#3B82F6',scenic:'#10B981',food:'#F59E0B',transport:'#8B5CF6'};
+let map=null, layer=null, cur=null;
+
+/* ---------- WGS84 -> GCJ02（高德瓦片用火星坐标） ---------- */
+const _PI=3.1415926535897932384626, _A=6378245.0, _EE=0.00669342162296594323;
+function _tl(x,y){let r=-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x));
+ r+=(20*Math.sin(6*x*_PI)+20*Math.sin(2*x*_PI))*2/3;
+ r+=(20*Math.sin(y*_PI)+40*Math.sin(y/3*_PI))*2/3;
+ r+=(160*Math.sin(y/12*_PI)+320*Math.sin(y*_PI/30))*2/3;return r}
+function _bl(x,y){let r=300+x+2*y+.1*x*x+.1*x*y+.1*Math.sqrt(Math.abs(x));
+ r+=(20*Math.sin(6*x*_PI)+20*Math.sin(2*x*_PI))*2/3;
+ r+=(20*Math.sin(x*_PI)+40*Math.sin(x/3*_PI))*2/3;
+ r+=(150*Math.sin(x/12*_PI)+300*Math.sin(x/30*_PI))*2/3;return r}
+function gcj(p){
+  const lat=p[0],lng=p[1];
+  let dla=_tl(lng-105,lat-35), dlo=_bl(lng-105,lat-35);
+  const rl=lat/180*_PI; let m=Math.sin(rl); m=1-_EE*m*m;
+  const sm=Math.sqrt(m);
+  dla=(dla*180)/((_A*(1-_EE))/(m*sm)*_PI);
+  dlo=(dlo*180)/(_A/sm*Math.cos(rl)*_PI);
+  return [lat+dla,lng+dlo];
+}
+const P=k=>gcj(PLACES[k].p);
+
+/* ---------- 地图 ---------- */
+function initMap(){
+  if(typeof L==='undefined') return;
+  /* innerHTML 重建后旧的 #map 节点已脱离文档，此时必须重建地图实例 */
+  if(map&&map._container&&document.body.contains(map._container)) return;
+  if(map){try{map.remove()}catch(e){} map=null; layer=null;}
+  const el=document.getElementById('map');
+  if(!el) return;
+  map=L.map(el,{zoomControl:false,attributionControl:false,tap:true});
+  L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    {subdomains:'1234',maxZoom:18,minZoom:3}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+}
+function noMap(){
+  document.querySelectorAll('#map').forEach(el=>{
+    el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;'+
+    'height:100%;color:#8C877E;font-size:12px;text-align:center;padding:20px;line-height:1.7">'+
+    '地图加载失败<br><span style="font-size:11px">不影响查看行程，导航请用高德/百度</span></div>';
+  });
+}
+function drawDay(d){
+  if(typeof L==='undefined'){noMap();return}
+  initMap();
+  if(!map) return;
+  if(layer) map.removeLayer(layer);
+  layer=L.layerGroup().addTo(map);
+  const pts=d.route.map(P);
+  L.polyline(pts,{color:d.color,weight:3.5,opacity:.85,dashArray:'6,7'}).addTo(layer);
+  const seen=new Set();
+  d.route.forEach((k,i)=>{
+    if(seen.has(k)) return; seen.add(k);
+    const pl=PLACES[k], c=COLORS[pl.t], sz=pl.t==='hotel'?20:16;
+    L.marker(P(k),{icon:L.divIcon({
+      html:'<div style="background:'+c+';width:'+sz+'px;height:'+sz+'px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+      iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],className:''})})
+      .addTo(layer).bindPopup('<b>'+pl.n+'</b><br><span style="color:#888;font-size:11px">'+(pl.d||'')+'</span>');
+  });
+  setTimeout(()=>{map.invalidateSize();
+    map.fitBounds(L.polyline(pts).getBounds(),{padding:[35,35],maxZoom:14});},60);
+}
+function drawAll(){
+  if(typeof L==='undefined'){noMap();return}
+  initMap();
+  if(!map) return;
+  if(layer) map.removeLayer(layer);
+  layer=L.layerGroup().addTo(map);
+  DAYS.forEach(d=>{
+    L.polyline(d.route.map(P),
+      {color:d.color,weight:2.5,opacity:.6,dashArray:'5,6'}).addTo(layer);
+  });
+  Object.keys(PLACES).forEach(k=>{
+    const pl=PLACES[k], c=COLORS[pl.t], sz=pl.t==='hotel'?16:12;
+    L.marker(P(k),{icon:L.divIcon({
+      html:'<div style="background:'+c+';width:'+sz+'px;height:'+sz+'px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)"></div>',
+      iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],className:''})})
+      .addTo(layer).bindPopup('<b>'+pl.n+'</b><br><span style="color:#888;font-size:11px">'+(pl.d||'')+'</span>');
+  });
+  setTimeout(()=>{map.invalidateSize();map.setView(gcj([39.96,116.33]),10);},60);
+}
+
+/* ---------- 渲染 ---------- */
+function esc(x){return x==null?'':String(x)}
+function renderDay(d){
+  const items=d.items.map(it=>{
+    const cls=it.key?'key':(it.meal?'meal':'');
+    const cps=(it.chips||[]).map(c=>'<span class="cp '+c[0]+'">'+esc(c[1])+'</span>').join('');
+    return '<div class="ti '+cls+'"><div class="ti-c">'+
+      (it.time?'<div class="ti-t">'+esc(it.time)+'</div>':'')+
+      '<div class="ti-h">'+esc(it.title)+'</div>'+
+      '<div class="ti-d">'+cps+esc(it.desc)+'</div>'+
+      (it.warn?'<div class="ti-w">⚠️ '+esc(it.warn)+'</div>':'')+
+      '</div></div>';
+  }).join('');
+  document.getElementById('trip').innerHTML=
+    '<div class="dhead" style="border-left-color:'+d.color+'">'+
+      '<div class="dh-d">'+d.date+'<span>'+d.wd+'</span></div>'+
+      '<div class="dh-t" style="color:'+d.color+'">'+esc(d.theme)+'</div>'+
+      '<div class="dh-h">'+esc(d.hotel)+'</div></div>'+
+    '<div class="mapbox"><div id="map"></div><div class="maptip">示意图 · 导航请用高德/百度</div></div>'+
+    '<div class="tl">'+items+'</div>';
+  drawDay(d);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderOverview(){
+  const rows=DAYS.map(d=>
+    '<div class="ov" style="border-left-color:'+d.color+'" data-go="'+d.id+'">'+
+    '<div class="ov-d">'+d.date+' '+d.wd+'</div>'+
+    '<div class="ov-t">'+esc(d.theme)+'</div>'+
+    '<div class="ov-h">'+esc(d.hotel)+'</div></div>').join('');
+  document.getElementById('trip').innerHTML=
+    '<div class="dhead"><div class="dh-d">全部行程<span>9天</span></div>'+
+    '<div class="dh-t">8/25 – 9/2 · 父母同行</div>'+
+    '<div class="dh-h">点上方日期或下方卡片看当天安排</div></div>'+
+    '<div class="mapbox"><div id="map"></div><div class="maptip">示意图 · 导航请用高德/百度</div></div>'+
+    rows+
+    '<div class="note"><div class="note-h">节奏设计</div>'+
+    '• 8/26–8/27 被医院和清华占住，是"被动"两天<br>'+
+    '• 8/27 清华+圆明园相邻，是全程最顺的一段<br>'+
+    '• 8/28 上午颐和园、中午云南菜，下午必须午睡<br>'+
+    '• 8/29 什刹海是最大步行日<br>'+
+    '• 8/30 机动日兼搬家日，可雍和宫、可北大、也可整天休息<br>'+
+    '• 9/1 故宫最累，前一晚在奥体早睡<br><br>'+
+    '<b>换酒店 4 次</b>：8/27、8/30、8/31、9/1。其中 8/30 和 8/31 连着两天搬家，务必提前寄存行李。<br><br>'+
+    '<b>早餐</b>：只有 8/31 和 9/2 两个早上酒店含早（海友），其余 6 天需在外解决。<br><br>'+
+    '<b>三顿正餐</b>：8/27–8/28 清华食堂、8/28 中午知春路云南菜、8/29 中午什刹海烤鸭。</div>';
+  drawAll();
+  document.querySelectorAll('[data-go]').forEach(el=>
+    el.onclick=()=>go(el.dataset.go));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- TODO ---------- */
+const KEY='bj_h5_todos';
+let done=JSON.parse(localStorage.getItem(KEY)||'{}');
+function renderTodo(){
+  let i=0,tot=0,dn=0;
+  const html=TODOS.map(g=>{
+    const its=g.items.map(it=>{
+      const k=i++;tot++;if(done[k])dn++;
+      return '<div class="td '+(g.urgent?'urg':'')+' '+(done[k]?'done':'')+'" data-k="'+k+'">'+
+        '<div class="cb"></div><div><div class="td-t">'+esc(it.t)+'</div>'+
+        '<div class="td-m">'+esc(it.m)+'</div></div></div>';
+    }).join('');
+    return '<div class="tdg"><div class="tdg-t">'+esc(g.g)+'</div>'+its+'</div>';
+  }).join('');
+  const pct=tot?Math.round(dn/tot*100):0;
+  document.getElementById('todo').innerHTML=
+    '<div class="prog">已完成 <b>'+dn+'</b> / '+tot+' 项'+(dn===tot?' 🎉 全部搞定':'')+
+    '<div class="pbar"><div class="pfill" style="width:'+pct+'%"></div></div></div>'+html;
+  document.querySelectorAll('[data-k]').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k;
+    if(done[k])delete done[k];else done[k]=1;
+    localStorage.setItem(KEY,JSON.stringify(done));
+    renderTodo();
+  });
+  const left=tot-dn, b=document.getElementById('tdBadge');
+  b.textContent=left||''; b.style.display=left?'inline-block':'none';
+}
+
+/* ---------- 导航 ---------- */
+function go(id){
+  cur=id;
+  document.querySelectorAll('.dpill').forEach(p=>{
+    const on=p.dataset.d===String(id);
+    p.classList.toggle('on',on);
+    p.style.background=on?(p.dataset.c||'#2A6FDB'):'#fff';
+    if(on)p.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  });
+  if(id===null) renderOverview();
+  else renderDay(DAYS.find(d=>d.id===id));
+  tab('trip');
+}
+function tab(n){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===n));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.toggle('on',b.dataset.t===n));
+  if(n==='trip'&&map) setTimeout(()=>map.invalidateSize(),60);
+}
+
+/* ---------- 启动 ---------- */
+(function(){
+  const bar=document.getElementById('daybar');
+  const all=document.createElement('div');
+  all.className='dpill';all.dataset.d='null';all.textContent='全部';
+  all.onclick=()=>go(null);bar.appendChild(all);
+  DAYS.forEach(d=>{
+    const el=document.createElement('div');
+    el.className='dpill';el.dataset.d=d.id;el.dataset.c=d.color;
+    el.innerHTML=d.date+'<span class="wd">'+d.wd.slice(1)+'</span>';
+    el.onclick=()=>go(d.id);bar.appendChild(el);
+  });
+  document.querySelectorAll('.nb').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+  renderTodo();
+  go(null);
+  /* Leaflet 迟到时重画当前页地图 */
+  window.__mapRetry=function(){
+    if(typeof L==='undefined')return;
+    if(cur===null)drawAll();else{const d=DAYS.find(x=>x.id===cur);if(d)drawDay(d)}
+  };
+  if(typeof L==='undefined')setTimeout(()=>{if(typeof L==='undefined')noMap()},8000);
+})();
+
+</script>
+</body>
+</html>
